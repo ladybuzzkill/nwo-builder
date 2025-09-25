@@ -109,6 +109,9 @@ const BACKGROUNDS = {
 };
 
 const POSITIVE_TRAITS = [
+  { name: "Speed Demon", cost: 1, effects: {} },
+  { name: "Low Thirst", cost: 1, effects: {} },
+  { name: "Herbalist", cost: 1, effects: {} },
   { name: "Iron Gut", cost: 1, effects: { Robustness: +1 } },
   { name: "Cats Eyes", cost: 2, effects: { Perception: +2 } },
   { name: "Adrenaline Junkie", cost: 2, effects: { Initiative: +2 } },
@@ -118,11 +121,15 @@ const POSITIVE_TRAITS = [
   { name: "Fast Healer", cost: 2, effects: { Robustness: +1 } },
   { name: "Eagle Eyed", cost: 3, effects: { "Ranged Attack": +1, Perception: +2 } },
   { name: "Desensitized", cost: 4, effects: { Resolve: +4 } },
+  { name: "Resilient", cost: 2, effects: { Robustness: +1 } },
+  { name: "Fit", cost: 3, effects: { Fitness: +2 } },
+  { name: "Strong", cost: 3, effects: { Strength: +2 } },
 ];
 
 const NEGATIVE_TRAITS = [
   { name: "Prone to Illness", cost: 1, effects: { Robustness: -1 } },
   { name: "Smoker", cost: 1, effects: { Robustness: -1 } },
+  { name: "Slow Driver", cost: 1, effects: {} },
   { name: "Slow Learner", cost: 1, effects: {} },
   { name: "Weak Stomach", cost: 1, effects: { Robustness: -1 } },
   { name: "Fear of Blood", cost: 2, effects: { Resolve: -2 } },
@@ -136,6 +143,12 @@ const NEGATIVE_TRAITS = [
   { name: "Clumsy", cost: 2, effects: { Stealth: -2 } },
   { name: "Hard of Hearing", cost: 2, effects: { Perception: -2 } },
   { name: "Deaf", cost: 4, effects: { Perception: -4 } },
+  { name: "All Thumbs", cost: 2, effects: {} },
+  { name: "Disorganized", cost: 3, effects: {} },
+  { name: "Weak", cost: 3, effects: {} },
+  { name: "Unfit", cost: 3, effects: {} },
+  { name: "Illiterate", cost: 4, effects: {} },
+  { name: "Slow Healer", cost: 1, effects: { Robustness: -1 } },
 ];
 
 const SKILL_TIERS = {
