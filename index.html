@@ -1,385 +1,490 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NWO Character Builder (2d6)</title>
+<div id="nwo-builder"></div>
+
 <style>
-  :root { --bg:#0f1115; --card:#151923; --ink:#e6e8ee; --muted:#9aa3b2; --accent:#70a5ff; --good:#36d399; --bad:#ff6b6b; }
-  html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
-  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
-  h1{font-size:22px;margin:0 0 12px}
-  h2{font-size:16px;margin:24px 0 8px;color:var(--accent)}
-  .grid{display:grid;gap:12px}
-  @media (min-width: 960px){.grid{grid-template-columns: 1.2fr 1fr}}
-  .card{background:var(--card);border:1px solid #232838;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-  .card h3{margin:0 0 8px;font-size:15px;color:var(--ink)}
-  .card .hd{padding:12px 14px;border-bottom:1px solid #22293a;font-weight:600}
-  .card .bd{padding:14px}
-  label{display:block;margin:8px 0 4px;color:var(--muted)}
-  select, input[type="number"], button{background:#0d111a;color:var(--ink);border:1px solid #2a3244;border-radius:10px;padding:10px 12px}
-  select, input[type="number"]{width:100%}
-  .row{display:grid;grid-template-columns: 1fr 1fr;gap:8px}
-  .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #273046;background:#0d111a;border-radius:999px;margin:4px 6px 0 0}
-  .muted{color:var(--muted)}
-  .totals{display:flex;flex-wrap:wrap;gap:8px}
-  .totals .pill b{color:var(--ink)}
-  .section{margin-top:8px}
-  .flex{display:flex;gap:10px;flex-wrap:wrap}
-  .tag{font-size:12px;background:#0b1220;border:1px solid #22304a;border-radius:8px;padding:4px 8px;margin:2px 2px;color:var(--muted)}
-  details{background:#0e1320;border:1px solid #232c40;border-radius:10px;padding:8px 10px}
-  summary{cursor:pointer}
-  .warning{color:var(--bad)}
-  .success{color:var(--good)}
-  .rollbox{display:flex;align-items:center;gap:10px;margin-top:10px}
-  .dice{display:inline-grid;grid-template-columns:repeat(2,40px);gap:6px}
-  .die{width:40px;height:40px;border-radius:8px;display:grid;place-items:center;background:#0b1020;border:1px solid #2a3350;font-weight:700}
-  .total{font-size:18px;font-weight:700}
-  .small{font-size:12px;color:var(--muted)}
-  .list{display:grid;grid-template-columns: repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:6px}
-  .checkbox{display:flex;align-items:center;gap:8px;border:1px solid #2a3244;padding:8px;border-radius:10px}
-  .checkbox input{width:16px;height:16px}
-  .kudos{font-size:12px;color:var(--muted);margin-top:8px}
+  /* ——— Layout & Style ——— */
+  #nwo-builder { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.3; }
+  .nwo-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 1000px) {
+    .nwo-grid { grid-template-columns: 300px 1fr; }
+  }
+  .card { border: 1px solid #ddd; border-radius: 12px; padding: 14px; background: #fff; }
+  .card h3 { margin: 0 0 8px; font-size: 16px; }
+  .muted { color: #555; font-size: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row > * { margin: 4px 0; }
+  label { font-size: 13px; }
+  select, input[type="number"], button { font-size: 14px; padding: 6px 8px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #ccc; border-radius: 999px; padding: 4px 10px; font-size: 12px; background: #fafafa; }
+  .warn { color: #a40000; font-weight: 600; }
+  .ok { color: #0a6; font-weight: 600; }
+  .grid-2 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  .stat-table { width: 100%; border-collapse: collapse; }
+  .stat-table th, .stat-table td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; }
+  .stat-table th { background: #f7f7f7; position: sticky; top: 0; z-index: 1; }
+  .small { font-size: 12px; }
+  .section { margin-top: 8px; }
+  .tag { font-size: 11px; background: #eef6ff; color: #0b5; padding: 2px 6px; border-radius: 6px; border: 1px solid #cfe8ff; }
+  details summary { cursor: pointer; }
+  .dice { font-size: 28px; display: inline-block; width: 1.4em; text-align: center; transition: transform 200ms ease; }
+  .shake { transform: rotate(6deg) scale(1.1); }
+  .badgelite { background: #f2f2f2; border-radius: 6px; padding: 2px 6px; }
+  .note { font-size: 12px; color: #333; background: #fff9e6; border: 1px solid #ffe7a3; border-radius: 8px; padding: 8px; }
 </style>
-</head>
-<body>
-<div class="wrap">
-  <h1>NWO Character Builder (2d6)</h1>
-  <p class="muted">Pick a Background, add Traits & Skill Traits, then test 2d6 rolls with the live modifier. Built for the No Way Out dice rules.</p>
-  <div class="grid">
-    <div class="card">
-      <div class="hd">1) Background & Points</div>
-      <div class="bd">
-        <label>Background</label>
-        <select id="background"></select>
-        <div class="totals section" id="pointsPills"></div>
-        <div class="kudos small">Background grants trait points, base STR/FIT, and unique thematic traits (applied automatically where relevant).</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="hd">2) Test a 2d6 Roll</div>
-      <div class="bd">
-        <label>Roll Type</label>
-        <select id="rollType"></select>
-        <div class="rollbox">
-          <button id="rollBtn">Roll 2d6</button>
-          <div class="dice"><div class="die" id="d1">–</div><div class="die" id="d2">–</div></div>
-          <div>
-            <div class="total" id="total">Total —</div>
-            <div class="small" id="breakdown">Modifier breakdown will appear here.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid" style="margin-top:12px">
-    <div class="card">
-      <div class="hd">3) Positive & Negative Traits</div>
-      <div class="bd">
-        <details open>
-          <summary><strong>Positive Traits</strong> <span class="small">(costs subtract from your points)</span></summary>
-          <div id="positives" class="list"></div>
-        </details>
-        <details style="margin-top:8px" open>
-          <summary><strong>Negative Traits</strong> <span class="small">(refund points)</span></summary>
-          <div id="negatives" class="list"></div>
-        </details>
-      </div>
-    </div>
-    <div class="card">
-      <div class="hd">4) Skill Traits (tiers & limits enforced)</div>
-      <div class="bd">
-        <div class="small">Amateur (1 pt, L6 cap), Experienced (2 pts, L8 cap, max 2), Expert (3 pts, L10 cap, max 1). Skill modifier = ⌊level ÷ 2⌋.</div>
-        <div id="skills" class="section"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card" style="margin-top:12px">
-    <div class="hd">Derived & Status</div>
-    <div class="bd" id="derived"></div>
-  </div>
-
-  <p class="kudos">Rules referenced from the NWO <em>Dice Guide</em>. See the wiki for authoritative details.</p>
-</div>
 
 <script>
-// --- Data from Dice Guide (trimmed to what the builder needs) ---
-const BACKGROUNDS = {
-  Scavenger: {
-    points:8, base:{STR:8, FIT:8}, traits:[{name:"Outdoorsman", note:"Unaffected by weather (RP)", mods:{}},{name:"Keen Hearing", mods:{Perception:+2}}]
-  },
-  Thinker: {
-    points:10, base:{STR:8, FIT:8}, traits:[{name:"Dextrous", note:"Faster transfer (mech)", mods:{}},{name:"Fast Learner", note:"125% XP (mech)", mods:{}}]
-  },
-  Stalwart: {
-    points:8, base:{STR:10, FIT:10}, traits:[{name:"Fast Coagulation", note:"Slower bleeding (mech)", mods:{}},{name:"Thick Skinned", mods:{Robustness:+2}}]
-  },
-  Labourer: {
-    points:8, base:{STR:8, FIT:8}, traits:[{name:"Heavy Lifter", mods:{Robustness:+1}},{name:"Organized", note:"More storage (mech)", mods:{}}]
-  }
-};
+(() => {
+  // ——————————————————————————————————————————
+  // Data derived from your Dice Guide page
+  // (Only traits with explicit, mechanical effects are wired.)
+  // ——————————————————————————————————————————
 
-// Positive / Negative traits that affect dice rolls per guide
-const POSITIVE_TRAITS = [
-  {name:"Iron Gut", cost:1, mods:{Robustness:+1}},
-  {name:"Cats Eyes", cost:2, mods:{Perception:+2}},
-  {name:"Adrenaline Junkie", cost:2, mods:{Initiative:+2}},
-  {name:"Graceful", cost:2, mods:{Stealth:+2}},
-  {name:"Brave", cost:2, mods:{Resolve:+2}},
-  {name:"Inconspicuous", cost:2, mods:{Stealth:+2}},
-  {name:"Fast Healer", cost:2, mods:{Robustness:+1}},
-  {name:"Eagle Eyed", cost:3, mods:{RangedAttack:+1, Perception:+2}},
-  {name:"Desensitized", cost:4, mods:{Resolve:+4}},
-  // Examples without explicit dice effects are omitted from calc
-];
-
-const NEGATIVE_TRAITS = [
-  {name:"Prone to Illness", cost:1, mods:{Robustness:-1}},
-  {name:"Smoker", cost:1, mods:{Robustness:-1}},
-  {name:"Slow Learner", cost:1, mods:{}},
-  {name:"Weak Stomach", cost:1, mods:{Robustness:-1}},
-  {name:"Fear of Blood", cost:2, mods:{Resolve:-2}},
-  {name:"Agoraphobic", cost:2, mods:{Resolve:-2}},
-  {name:"Claustrophobic", cost:2, mods:{Resolve:-2}},
-  {name:"Cowardly", cost:2, mods:{Resolve:-2}},
-  {name:"Pacifist", cost:2, mods:{Initiative:-2}},
-  {name:"Short Sighted", cost:2, mods:{RangedAttack:-1, Perception:-1}},
-  {name:"Thin Skinned", cost:2, mods:{Robustness:-2}},
-  {name:"Conspicuous", cost:2, mods:{Stealth:-2}},
-  {name:"Clumsy", cost:2, mods:{Stealth:-2}},
-  {name:"Hard of Hearing", cost:2, mods:{Perception:-2}},
-  {name:"Deaf", cost:4, mods:{Perception:-4}},
-  // Example-only entries omitted
-];
-
-// Skill traits (subset most relevant to rolls)
-const SKILL_TRAITS = [
-  {key:"First Aid", tiers:{Amateur:{cost:1, start:6, cap:6}, Experienced:{cost:2, start:8, cap:8}, Expert:{cost:3, start:10, cap:10}}},
-  {key:"Aiming", tiers:{Amateur:{cost:1, start:6, cap:6}, Experienced:{cost:2, start:8, cap:8}, Expert:{cost:3, start:10, cap:10}}},
-  {key:"Reloading", tiers:{Amateur:{cost:1, start:6, cap:6}, Experienced:{cost:2, start:8, cap:8}, Expert:{cost:3, start:10, cap:10}}},
-  {key:"Nimble", tiers:{Amateur:{cost:1, start:6, cap:6}, Experienced:{cost:2, start:8, cap:8}, Expert:{cost:3, start:10, cap:10}}},
-  {key:"Sneaking", tiers:{Amateur:{cost:1, start:6, cap:6}, Experienced:{cost:2, start:8, cap:8}, Expert:{cost:3, start:10, cap:10}}}
-];
-
-// Which roll uses which underlying skill for skill-derived modifier
-const ROLL_SKILL_MAP = {
-  "Perception": null,
-  "Resolve": null,
-  "Robustness": null,
-  "Initiative": null,
-  "Stealth": "Sneaking",
-  "Ranged Attack": "Aiming",
-  "First Aid": "First Aid",
-  "Nimble": "Nimble",
-  "Reloading": "Reloading"
-};
-
-// --- State ---
-const state = {
-  background: Object.keys(BACKGROUNDS)[0],
-  positives: new Set(),
-  negatives: new Set(),
-  skills: {}, // key -> tier string or null
-};
-
-// --- Helpers ---
-function el(q){return document.querySelector(q)}
-function pill(txt){return `<span class="pill"><b>${txt}</b></span>`}
-function sumMods(collection){
-  const mods = {Perception:0, Resolve:0, Robustness:0, Initiative:0, Stealth:0, RangedAttack:0, MeleeAttack:0};
-  // background traits
-  for(const t of BACKGROUNDS[state.background].traits){for(const k in t.mods){mods[k]=(mods[k]||0)+t.mods[k];}}
-  // positives
-  POSITIVE_TRAITS.filter(t=>state.positives.has(t.name)).forEach(t=>{for(const k in t.mods){mods[k]=(mods[k]||0)+t.mods[k];}});
-  // negatives
-  NEGATIVE_TRAITS.filter(t=>state.negatives.has(t.name)).forEach(t=>{for(const k in t.mods){mods[k]=(mods[k]||0)+t.mods[k];}});
-  return mods;
-}
-function skillLevel(key){
-  const tier = state.skills[key]||null; if(!tier) return 0;
-  const t = SKILL_TRAITS.find(s=>s.key===key).tiers[tier];
-  return t.start; // start level at creation
-}
-function skillMod(key){return Math.floor(skillLevel(key)/2)}
-function traitPointsUsed(){
-  let spent = 0;
-  for(const p of state.positives){spent += POSITIVE_TRAITS.find(t=>t.name===p).cost;}
-  for(const key in state.skills){const tier = state.skills[key]; if(!tier) continue; const costs = SKILL_TRAITS.find(s=>s.key===key).tiers; spent += costs[tier].cost;}
-  // negatives refund
-  for(const n of state.negatives){spent -= NEGATIVE_TRAITS.find(t=>t.name===n).cost;}
-  return spent;
-}
-function experiencedCount(){return Object.values(state.skills).filter(x=>x==="Experienced").length}
-function expertCount(){return Object.values(state.skills).filter(x=>x==="Expert").length}
-
-// --- Renderers ---
-function renderBackgrounds(){
-  const sel = el('#background');
-  sel.innerHTML = Object.keys(BACKGROUNDS).map(k=>`<option value="${k}">${k}</option>`).join('');
-  sel.value = state.background;
-  sel.onchange = ()=>{ state.background = sel.value; renderAll(); };
-}
-function renderPoints(){
-  const bg = BACKGROUNDS[state.background];
-  const remaining = bg.points - traitPointsUsed();
-  const html = [
-    pill(`Trait Points: ${bg.points}`),
-    `<span class="pill">Spent: <b>${traitPointsUsed()}</b></span>`,
-    `<span class="pill" style="border-color:${remaining<0?'#4a2230':'#223a2a'}">Remaining: <b class="${remaining<0?'warning':'success'}">${remaining}</b></span>`
-  ].join('');
-  el('#pointsPills').innerHTML = html;
-}
-function renderTraits(){
-  const p = el('#positives');
-  p.innerHTML = POSITIVE_TRAITS.map(t=>{
-    const id = `pos_${t.name.replace(/\s+/g,'_')}`;
-    const checked = state.positives.has(t.name) ? 'checked' : '';
-    const mods = Object.entries(t.mods).map(([k,v])=>`<span class="tag">${k.replace('RangedAttack','Ranged Attack')}: ${v>0?'+':''}${v}</span>`).join('');
-    return `<label class="checkbox"><input type="checkbox" id="${id}" ${checked}/> <div><b>${t.name}</b> <span class="muted">(cost ${t.cost})</span><div class="flex">${mods}</div></div></label>`
-  }).join('');
-  POSITIVE_TRAITS.forEach(t=>{
-    const id = `pos_${t.name.replace(/\s+/g,'_')}`;
-    el('#'+id).onchange = (e)=>{ e.target.checked?state.positives.add(t.name):state.positives.delete(t.name); renderAll(); };
-  });
-
-  const n = el('#negatives');
-  n.innerHTML = NEGATIVE_TRAITS.map(t=>{
-    const id = `neg_${t.name.replace(/\s+/g,'_')}`;
-    const checked = state.negatives.has(t.name) ? 'checked' : '';
-    const mods = Object.entries(t.mods).map(([k,v])=>`<span class="tag">${k.replace('RangedAttack','Ranged Attack')}: ${v>0?'+':''}${v}</span>`).join('');
-    return `<label class="checkbox"><input type="checkbox" id="${id}" ${checked}/> <div><b>${t.name}</b> <span class="muted">(refund ${t.cost})</span><div class="flex">${mods}</div></div></label>`
-  }).join('');
-  NEGATIVE_TRAITS.forEach(t=>{
-    const id = `neg_${t.name.replace(/\s+/g,'_')}`;
-    el('#'+id).onchange = (e)=>{ e.target.checked?state.negatives.add(t.name):state.negatives.delete(t.name); renderAll(); };
-  });
-}
-function renderSkills(){
-  const cont = el('#skills');
-  const expCount = experiencedCount();
-  const exCount = expertCount();
-  cont.innerHTML = SKILL_TRAITS.map(s=>{
-    const val = state.skills[s.key] || '';
-    const opts = ['','Amateur','Experienced','Expert'].map(tier=>{
-      if(tier==='Experienced' && expCount>=2 && val!==tier) return `<option disabled>Experienced (max 2)</option>`;
-      if(tier==='Expert' && exCount>=1 && val!==tier) return `<option disabled>Expert (max 1)</option>`;
-      const lab = tier?`${tier} — cost ${s.tiers[tier]?.cost||''}, start L${s.tiers[tier]?.start||''}, cap ${s.tiers[tier]?.cap||''}`:'None';
-      return `<option ${val===tier?'selected':''} value="${tier}">${lab}</option>`;
-    }).join('');
-    return `<div class="row" style="align-items:center;margin:6px 0">
-      <div><b>${s.key}</b></div>
-      <div><select id="skill_${s.key}">${opts}</select></div>
-      <div class="small" style="grid-column: 1 / -1; color:var(--muted)">Level: <b>${skillLevel(s.key)}</b> • Modifier: <b>${skillMod(s.key)>=0?'+':''}${skillMod(s.key)}</b></div>
-    </div>`
-  }).join('');
-  SKILL_TRAITS.forEach(s=>{
-    el('#skill_'+s.key).onchange = (e)=>{ const v=e.target.value || null; state.skills[s.key]=v; renderAll(); };
-  })
-}
-function renderDerived(){
-  const mods = sumMods();
-  const bg = BACKGROUNDS[state.background];
-  const rows = [
-    {k:'Perception', v:mods.Perception||0, tip:'Background/traits to Perception (e.g., Keen Hearing, Cats Eyes, Eagle Eyed, negatives).'},
-    {k:'Resolve', v:mods.Resolve||0, tip:'Brave, Desensitized, and negatives like Fear of Blood adjust this.'},
-    {k:'Robustness', v:mods.Robustness||0, tip:'Iron Gut, Fast Healer, Thick Skinned, Heavy Lifter, negatives like Thin Skinned.'},
-    {k:'Initiative', v:mods.Initiative||0, tip:'Adrenaline Junkie adds; Pacifist subtracts.'},
-    {k:'Stealth', v:(mods.Stealth||0)+skillMod('Sneaking'), tip:'Sneaking skill contributes (⌊level/2⌋) + trait adjustments.'},
-    {k:'Ranged Attack', v:(mods.RangedAttack||0)+skillMod('Aiming'), tip:'Aiming skill (⌊level/2⌋) plus trait adjustments (Eagle Eyed / Short Sighted).'},
-    {k:'First Aid', v:skillMod('First Aid'), tip:'From First Aid skill tier only (⌊level/2⌋).'},
-    {k:'Nimble', v:skillMod('Nimble'), tip:'From Nimble skill tier (⌊level/2⌋).'},
-    {k:'Reloading', v:skillMod('Reloading'), tip:'From Reloading skill tier (⌊level/2⌋).'}
-  ];
-  const html = `
-    <div class="totals">
-      ${pill(`Base STR ${bg.base.STR}`)} ${pill(`Base FIT ${bg.base.FIT}`)}
-      ${bg.traits.map(t=>`<span class="pill">${t.name}</span>`).join('')}
-    </div>
-    <div class="section">
-      ${rows.map(r=>`<div class="row" style="grid-template-columns: 180px 1fr"><div><b>${r.k}</b></div><div><span class="pill">${r.v>=0?'+':''}${r.v}</span> <span class="small">${r.tip}</span></div></div>`).join('')}
-    </div>`;
-  el('#derived').innerHTML = html;
-}
-function renderRollTypes(){
-  const sel = el('#rollType');
-  const keys = Object.keys(ROLL_SKILL_MAP);
-  sel.innerHTML = keys.map(k=>`<option>${k}</option>`).join('');
-}
-
-function roll2d6(){ return [1+Math.floor(Math.random()*6), 1+Math.floor(Math.random()*6)]; }
-function modForRoll(name){
-  const traitMods = sumMods();
-  const skillKey = ROLL_SKILL_MAP[name];
-  let mod = 0;
-  if(name==='Ranged Attack') mod += (traitMods.RangedAttack||0); // mapped field
-  else if(name==='Stealth') mod += (traitMods.Stealth||0);
-  else if(name==='Perception') mod += (traitMods.Perception||0);
-  else if(name==='Resolve') mod += (traitMods.Resolve||0);
-  else if(name==='Robustness') mod += (traitMods.Robustness||0);
-  else if(name==='Initiative') mod += (traitMods.Initiative||0);
-  if(skillKey){ mod += skillMod(skillKey); }
-  return mod;
-}
-function breakdownForRoll(name){
-  const parts = [];
-  const m = sumMods();
-  const bg = BACKGROUNDS[state.background];
-  // background contributions
-  bg.traits.forEach(t=>{ for(const k in t.mods){
-    const lab = k==='RangedAttack'?'Ranged Attack':k; if((name===lab) || (name==='Ranged Attack' && k==='RangedAttack') || (name==='Stealth' && k==='Stealth') || (name==='Perception' && k==='Perception') || (name==='Resolve' && k==='Resolve') || (name==='Robustness' && k==='Robustness') || (name==='Initiative' && k==='Initiative')) parts.push(`${t.name} ${t.mods[k]>0?'+':''}${t.mods[k]}`);
-  }});
-  // positive
-  POSITIVE_TRAITS.filter(t=>state.positives.has(t.name)).forEach(t=>{ for(const k in t.mods){ const lab = k==='RangedAttack'?'Ranged Attack':k; if(lab===name) parts.push(`${t.name} ${t.mods[k]>0?'+':''}${t.mods[k]}`); }});
-  // negative
-  NEGATIVE_TRAITS.filter(t=>state.negatives.has(t.name)).forEach(t=>{ for(const k in t.mods){ const lab = k==='RangedAttack'?'Ranged Attack':k; if(lab===name) parts.push(`${t.name} ${t.mods[k]>0?'+':''}${t.mods[k]}`); }});
-  // skill
-  const sk = ROLL_SKILL_MAP[name];
-  if(sk){ const sm = skillMod(sk); if(sm!==0) parts.push(`${sk} skill ⌊${skillLevel(sk)}/2⌋ = ${sm>=0?'+':''}${sm}`); }
-  if(parts.length===0) parts.push('No applicable modifiers');
-  return parts.join(' • ');
-}
-
-function bindRoll(){
-  el('#rollBtn').onclick = ()=>{
-    const name = el('#rollType').value;
-    const [a,b] = roll2d6();
-    const mod = modForRoll(name);
-    const total = a+b+mod;
-    el('#d1').textContent = a; el('#d2').textContent = b;
-    el('#total').textContent = `Total ${total}  (2d6=${a+b} ${mod>=0?'+':''}${mod})`;
-    el('#breakdown').textContent = breakdownForRoll(name);
+  const BACKGROUNDS = {
+    Scavenger: {
+      traitPoints: 8, base: { STR: 8, FIT: 8 },
+      freeTraits: [
+        { name: "Outdoorsman", effects: {} }, // unaffected by weather (RP/mech outside dice)
+        { name: "Keen Hearing", effects: { Perception: +2 } } // +2 Perception Rolls
+      ]
+    },
+    Thinker: {
+      traitPoints: 10, base: { STR: 8, FIT: 8 },
+      freeTraits: [
+        { name: "Dextrous", effects: {} },
+        { name: "Fast Learner", effects: {} }
+      ]
+    },
+    Stalwart: {
+      traitPoints: 8, base: { STR: 10, FIT: 10 },
+      freeTraits: [
+        { name: "Fast Coagulation", effects: {} },
+        { name: "Thick Skinned", effects: { Robustness: +2 } } // +2 Robustness Rolls
+      ]
+    },
+    Labourer: {
+      traitPoints: 8, base: { STR: 8, FIT: 8 },
+      freeTraits: [
+        { name: "Heavy Lifter", effects: { Robustness: +1 } }, // +1 Robustness Rolls
+        { name: "Organized", effects: {} }
+      ]
+    }
   };
-}
 
-function renderAll(){
-  renderPoints();
-  renderTraits();
-  renderSkills();
-  renderDerived();
-}
+  // Vanilla traits with explicit dice effects from the page.
+  const POSITIVE_TRAITS = [
+    { name: "Speed Demon", cost: 1, effects: {} },
+    { name: "Low Thirst", cost: 1, effects: {} },
+    { name: "Herbalist", cost: 1, effects: {} },
+    { name: "Iron Gut", cost: 1, effects: { Robustness: +1 } },
+    { name: "Cats Eyes", cost: 2, effects: { Perception: +2 } },
+    { name: "Adrenaline Junkie", cost: 2, effects: { Initiative: +2 } },
+    { name: "Graceful", cost: 2, effects: { Stealth: +2 } },
+    { name: "Brave", cost: 2, effects: { Resolve: +2 } },
+    { name: "Inconspicuous", cost: 2, effects: { Stealth: +2 } },
+    { name: "Fast Healer", cost: 2, effects: { Robustness: +1 } },
+    { name: "Resilient", cost: 2, effects: {} },
+    { name: "Fit", cost: 3, effects: {} },
+    { name: "Strong", cost: 3, effects: {} },
+    { name: "Eagle Eyed", cost: 3, effects: { "Ranged Attack": +1, Perception: +2 } },
+    { name: "Desensitized", cost: 4, effects: { Resolve: +4 } },
+  ];
 
-// --- init ---
-(function init(){
-  renderBackgrounds();
-  renderPoints();
-  renderTraits();
-  renderSkills();
-  renderRollTypes();
-  bindRoll();
-  renderDerived();
+  const NEGATIVE_TRAITS = [
+    { name: "Prone to Illness", cost: 1, effects: { Robustness: -1 } },
+    { name: "Smoker", cost: 1, effects: { Robustness: -1 } },
+    { name: "Slow Driver", cost: 1, effects: {} },
+    { name: "Slow Learner", cost: 1, effects: {} },
+    { name: "Weak Stomach", cost: 1, effects: { Robustness: -1 } },
+    { name: "Fear of Blood", cost: 2, effects: { Resolve: -2 } },
+    { name: "Agoraphobic", cost: 2, effects: { Resolve: -2 } },
+    { name: "All Thumbs", cost: 2, effects: {} },
+    { name: "Claustrophobic", cost: 2, effects: { Resolve: -2 } },
+    { name: "Cowardly", cost: 2, effects: { Resolve: -2 } },
+    { name: "Pacifist", cost: 2, effects: { Initiative: -2 } },
+    { name: "Short Sighted", cost: 2, effects: { "Ranged Attack": -1, Perception: -1 } },
+    { name: "Thin Skinned", cost: 2, effects: { Robustness: -2 } },
+    { name: "Conspicuous", cost: 2, effects: { Stealth: -2 } },
+    { name: "Clumsy", cost: 2, effects: { Stealth: -2 } },
+    { name: "Hard of Hearing", cost: 2, effects: { Perception: -2 } },
+    { name: "Disorganized", cost: 3, effects: {} },
+    { name: "Weak", cost: 3, effects: {} },
+    { name: "Unfit", cost: 3, effects: {} },
+    { name: "Illiterate", cost: 4, effects: {} },
+    { name: "Deaf", cost: 4, effects: { Perception: -4 } },
+    { name: "Very Weak", cost: 5, effects: { Resolve: +4 } },   // as listed
+    { name: "Very Unfit", cost: 5, effects: { Resolve: +4 } },  // as listed
+  ];
+
+  // Skill trait tiers (cost/limits) and the skills they affect. Caps are implied by tier.
+  const SKILL_TIERS = {
+    Amateur: { cost: 1, start: 6, cap: 6, limitPerChar: Infinity },
+    Experienced: { cost: 2, start: 8, cap: 8, limitPerChar: 2 },
+    Expert: { cost: 3, start: 10, cap: 10, limitPerChar: 1 },
+  };
+
+  // Grouped skills per your page (amateur/experienced/expert variants share the same skill list but different bonus amounts).
+  const SKILL_GROUPS = [
+    { key: "Carpentry", label: "Carpentry", list: ["Carpentry"] },
+    { key: "Farming", label: "Farming", list: ["Farming"] },
+    { key: "First Aid", label: "First Aid", list: ["First Aid"] },
+    { key: "Engineer", label: "Mechanics & Electronics", list: ["Mechanics","Electronics"] },
+    { key: "Metalworking", label: "Metalworking", list: ["Metalworking"] },
+    { key: "Housekeeper", label: "Cooking & Tailoring", list: ["Cooking","Tailoring"] },
+    { key: "Shooter", label: "Aiming & Reloading", list: ["Aiming","Reloading"] },
+    { key: "Outdoorsman", label: "Fishing/Foraging/Trapping", list: ["Fishing","Foraging","Trapping"] },
+    { key: "Athlete", label: "Nimble & Sprinting", list: ["Nimble","Sprinting"] },
+    { key: "Rogue", label: "Sneaking & Lightfooted", list: ["Sneaking","Lightfooted"] },
+    { key: "Fighter-Survival", label: "Axe/Spear/Maintenance", list: ["Axe","Spear","Maintenance"] },
+    { key: "Fighter-Blunt", label: "Long/Short Blunt + Maint.", list: ["Long Blunt","Short Blunt","Maintenance"] },
+    { key: "Fighter-Blade", label: "Long/Short Blade + Maint.", list: ["Long Blade","Short Blade","Maintenance"] },
+  ];
+
+  // Map *some* skills to checks where level/2 becomes a modifier.
+  // You can expand this mapping as you like.
+  const SKILL_TO_CHECK = {
+    Aiming: "Ranged Attack",
+    Reloading: "Reloading",
+    Sneaking: "Hiding",       // per table "Hiding" boosted by Sneaking; we expose Hiding as a roll
+    Nimble: "Unarmed",        // per table; we include Unarmed roll
+    "Long Blade": "Melee Attack",
+    "Short Blade": "Melee Attack",
+    "Long Blunt": "Melee Attack",
+    "Short Blunt": "Melee Attack",
+    Axe: "Melee Attack",
+    Spear: "Melee Attack",
+    Maintenance: null,
+    Mechanics: null,
+    Electronics: null,
+    Metalworking: null,
+    Cooking: null,
+    Tailoring: null,
+    Fishing: null,
+    Foraging: null,
+    Trapping: null,
+    Sprinting: "Initiative", // if you prefer, remove this
+    Lightfooted: "Stealth",
+    FirstAid: null,
+    Carpentry: null,
+    Farming: null,
+  };
+
+  // Checks visible in the roller dropdown
+  const CHECKS = [
+    "Melee Attack", "Melee Defence", "Ranged Attack", "Reloading",
+    "Perception", "Resolve", "Stealth", "Initiative", "Robustness",
+    "Hiding", "Unarmed"
+  ];
+
+  // ——— State ———
+  const state = {
+    background: "Scavenger",
+    pos: new Set(),
+    neg: new Set(),
+    skills: {}, // key -> tier ("Amateur"/"Experienced"/"Expert")
+  };
+
+  // ——— Helpers ———
+  const el = (tag, props={}, ...children) => {
+    const node = document.createElement(tag);
+    Object.entries(props).forEach(([k,v]) => (k in node ? node[k]=v : node.setAttribute(k,v)));
+    children.flat().forEach(c => node.append(c?.nodeType ? c : document.createTextNode(c)));
+    return node;
+  };
+
+  const sumEffects = () => {
+    const totals = { "Melee Attack":0, "Melee Defence":0, "Ranged Attack":0, Reloading:0,
+      Perception:0, Resolve:0, Stealth:0, Initiative:0, Robustness:0, Hiding:0, Unarmed:0 };
+
+    // Background freebies
+    for (const t of BACKGROUNDS[state.background].freeTraits) {
+      for (const [k,v] of Object.entries(t.effects)) totals[k] = (totals[k]||0)+v;
+    }
+    // Positive
+    POSITIVE_TRAITS.forEach(t => { if (state.pos.has(t.name)) for (const [k,v] of Object.entries(t.effects)) totals[k]=(totals[k]||0)+v; });
+    // Negative
+    NEGATIVE_TRAITS.forEach(t => { if (state.neg.has(t.name)) for (const [k,v] of Object.entries(t.effects)) totals[k]=(totals[k]||0)+v; });
+
+    // Skills → modifiers = level/2
+    for (const [groupKey, tier] of Object.entries(state.skills)) {
+      const group = SKILL_GROUPS.find(g => g.key === groupKey);
+      if (!group) continue;
+      const { start } = SKILL_TIERS[tier];
+      const mod = Math.floor(start / 2); // Skill Level ÷ 2
+      group.list.forEach(skill => {
+        const check = SKILL_TO_CHECK[skill] ?? null;
+        if (check) totals[check] = (totals[check]||0) + mod;
+      });
+    }
+    return totals;
+  };
+
+  const spend = () => {
+    let pts = BACKGROUNDS[state.background].traitPoints;
+    // pos +
+    POSITIVE_TRAITS.forEach(t => { if (state.pos.has(t.name)) pts -= t.cost; });
+    // neg -
+    NEGATIVE_TRAITS.forEach(t => { if (state.neg.has(t.name)) pts += t.cost; });
+    // skills +
+    for (const tier of Object.values(state.skills)) pts -= SKILL_TIERS[tier].cost;
+    return pts;
+  };
+
+  const skillTierCounts = () => {
+    let exp=0, ex=0;
+    for (const tier of Object.values(state.skills)) {
+      if (tier==="Experienced") exp++;
+      if (tier==="Expert") ex++;
+    }
+    return { exp, ex };
+  };
+
+  const illegalSkillMix = () => {
+    // same group can't have two tiers
+    // (UI enforces single select, but keep guard)
+    return false;
+  };
+
+  // ——— UI ———
+  const root = document.getElementById("nwo-builder");
+  const wrap = el("div", { className: "nwo-grid" });
+
+  // Left column: selections
+  const left = el("div", { className: "card" });
+  left.append(el("h3",{}, "Character Builder"));
+
+  // Background
+  const bgCard = el("div", { className: "section" });
+  bgCard.append(el("div", { className:"muted" }, "Background"));
+  const bgSel = el("select", {});
+  Object.keys(BACKGROUNDS).forEach(k => bgSel.append(el("option", { value: k }, k)));
+  bgSel.value = state.background;
+  const bgInfo = el("div", { className: "small badgelite" });
+  const renderBgInfo = () => {
+    const b = BACKGROUNDS[state.background];
+    bgInfo.textContent = `${b.traitPoints} Trait Points • Base STR ${b.base.STR}, FIT ${b.base.FIT} • Free: ${b.freeTraits.map(x=>x.name).join(", ")}`;
+  };
+  renderBgInfo();
+  bgSel.addEventListener("change", () => { state.background = bgSel.value; renderBgInfo(); renderAll(); });
+  bgCard.append(el("div", { className:"row" }, bgSel, bgInfo));
+  left.append(bgCard);
+
+  // Positive traits
+  const posCard = el("div", { className: "section" });
+  posCard.append(el("div", { className:"muted" }, "Positive Traits"));
+  const posList = el("div");
+  POSITIVE_TRAITS.forEach(t => {
+    const id = "pos_"+t.name.replace(/\s+/g,"_");
+    const cb = el("input", { type:"checkbox", id });
+    cb.addEventListener("change", () => { cb.checked ? state.pos.add(t.name) : state.pos.delete(t.name); renderAll(); });
+    const label = el("label", { htmlFor:id }, `${t.name} (Cost ${t.cost})`);
+    const eff = Object.keys(t.effects).length ? el("span",{className:"pill"}, "Effects: "+Object.entries(t.effects).map(([k,v])=>`${v>0?'+':''}${v} ${k}`).join(", ")) : el("span",{className:"pill"}, "No direct dice effect");
+    posList.append(el("div",{className:"row"}, cb, label, eff));
+  });
+  posCard.append(posList);
+  left.append(posCard);
+
+  // Negative traits
+  const negCard = el("div", { className: "section" });
+  negCard.append(el("div", { className:"muted" }, "Negative Traits"));
+  const negList = el("div");
+  NEGATIVE_TRAITS.forEach(t => {
+    const id = "neg_"+t.name.replace(/\s+/g,"_");
+    const cb = el("input", { type:"checkbox", id });
+    cb.addEventListener("change", () => { cb.checked ? state.neg.add(t.name) : state.neg.delete(t.name); renderAll(); });
+    const label = el("label", { htmlFor:id }, `${t.name} (+${t.cost} points)`);
+    const eff = Object.keys(t.effects).length ? el("span",{className:"pill"}, "Effects: "+Object.entries(t.effects).map(([k,v])=>`${v>0?'+':''}${v} ${k}`).join(", ")) : el("span",{className:"pill"}, "No direct dice effect");
+    negList.append(el("div",{className:"row"}, cb, label, eff));
+  });
+  negCard.append(negList);
+  left.append(negCard);
+
+  // Skill traits
+  const skillCard = el("div", { className: "section" });
+  skillCard.append(el("div", { className:"muted" }, "Skill Traits (auto-set levels & caps; modifiers = level ÷ 2)"));
+  const table = el("table", { className:"stat-table small" });
+  const thead = el("thead");
+  thead.append(el("tr",{},
+    el("th",{},"Skill Group"),
+    el("th",{},"Tier"),
+    el("th",{},"Start"),
+    el("th",{},"Cap"),
+    el("th",{},"Cost"),
+    el("th",{},"Affects")
+  ));
+  const tbody = el("tbody");
+  SKILL_GROUPS.forEach(g => {
+    const tr = el("tr");
+    tr.append(el("td",{}, g.label));
+    // tier selector
+    const sel = el("select",{});
+    sel.append(el("option",{value:""},"None"));
+    ["Amateur","Experienced","Expert"].forEach(t => sel.append(el("option",{value:t},t)));
+    sel.addEventListener("change", () => {
+      if (sel.value) { state.skills[g.key] = sel.value; } else { delete state.skills[g.key]; }
+      renderAll();
+    });
+    tr.append(el("td",{}, sel));
+    tr.append(el("td",{}, el("span", { "data-start": g.key }, "-")));
+    tr.append(el("td",{}, el("span", { "data-cap": g.key }, "-")));
+    tr.append(el("td",{}, el("span", { "data-cost": g.key }, "-")));
+    tr.append(el("td",{}, g.list.join(", ")));
+    tbody.append(tr);
+  });
+  table.append(thead, tbody);
+  skillCard.append(table);
+
+  // Limits & points
+  const pointsBar = el("div",{className:"row", style:"justify-content: space-between; margin-top:8px;"});
+  const pointsLeft = el("div",{className:"pill"});
+  const limitInfo = el("div",{className:"pill"});
+  pointsBar.append(pointsLeft, limitInfo);
+  skillCard.append(pointsBar);
+
+  left.append(skillCard);
+
+  // Right column: summary + roller
+  const right = el("div", { className: "card" });
+
+  // Totals panel
+  const totalsCard = el("div", { className: "section" });
+  totalsCard.append(el("h3",{},"Build Summary & Modifiers"));
+  const totalsNote = el("div",{className:"note"},
+    "Skill modifiers are computed as (Skill Level ÷ 2). For example, Level 6 → +3; Level 10 → +5. "
+    +"Background freebies (e.g., Keen Hearing, Thick Skinned) and vanilla traits also add flat bonuses as listed on your Dice Guide."
+  );
+  totalsCard.append(totalsNote);
+
+  const totalsTable = el("table", { className: "stat-table" });
+  const th = el("thead");
+  th.append(el("tr",{},
+    el("th",{},"Check"),
+    el("th",{},"Total Mod"),
+    el("th",{},"From Traits"),
+    el("th",{},"From Skills")
+  ));
+  const tb = el("tbody", { id:"totals-body" });
+  totalsTable.append(th, tb);
+  totalsCard.append(totalsTable);
+  right.append(totalsCard);
+
+  // Roller
+  const roller = el("div", { className:"section" });
+  roller.append(el("h3",{},"2d6 Test Roller"));
+  const selCheck = el("select",{});
+  CHECKS.forEach(c => selCheck.append(el("option",{value:c},c)));
+  const rollBtn = el("button",{}, "Roll 2d6");
+  const d1 = el("span",{className:"dice", title:"die 1"},"🎲");
+  const d2 = el("span",{className:"dice", title:"die 2"},"🎲");
+  const out = el("div",{className:"small", style:"margin-top:8px;"});
+  roller.append(el("div",{className:"row"}, el("label",{},"Check:"), selCheck, rollBtn, d1, d2));
+  roller.append(out);
+  right.append(roller);
+
+  // Links
+  const links = el("div",{className:"section small muted"},
+    "Reference: See the ",
+    el("a",{href:"https://www.no-way-out.com/wiki/Dice_Guide", target:"_blank"},"Dice Guide"),
+    " for background traits, vanilla trait effects, and skill trait tiers. Weapon tables & DIS exist but are beyond this builder’s scope."
+  );
+  right.append(links);
+
+  wrap.append(left, right);
+  root.append(wrap);
+
+  // ——— Renderers ———
+  function renderSkillRows() {
+    // Update start/cap/cost cells per selected tier
+    SKILL_GROUPS.forEach(g => {
+      const startSpan = wrap.querySelector(`[data-start="${g.key}"]`);
+      const capSpan   = wrap.querySelector(`[data-cap="${g.key}"]`);
+      const costSpan  = wrap.querySelector(`[data-cost="${g.key}"]`);
+      const tier = state.skills[g.key] || "";
+      if (!tier) { startSpan.textContent="-"; capSpan.textContent="-"; costSpan.textContent="-"; }
+      else {
+        const T = SKILL_TIERS[tier];
+        startSpan.textContent = T.start;
+        capSpan.textContent   = T.cap;
+        costSpan.textContent  = T.cost;
+      }
+    });
+
+    const pts = spend();
+    pointsLeft.textContent = `Remaining Trait Points: ${pts}`;
+    pointsLeft.className = "pill " + (pts < 0 ? "warn" : "ok");
+
+    const {exp, ex} = skillTierCounts();
+    limitInfo.textContent = `Limits — Experienced: ${exp}/2 • Expert: ${ex}/1`;
+    limitInfo.className = "pill " + ((exp>2 || ex>1 || pts<0 || illegalSkillMix()) ? "warn" : "ok");
+  }
+
+  function renderTotals() {
+    const totals = sumEffects();
+
+    // Decompose where bonuses come from (traits vs skills) for each check
+    const traitOnly = {}; const skillOnly = {};
+    CHECKS.forEach(k => { traitOnly[k]=0; skillOnly[k]=0; });
+
+    // From background + vanilla traits
+    const addEffects = (effects, bucket) => {
+      for (const [k,v] of Object.entries(effects)) if (k in traitOnly) bucket[k]+=v;
+    };
+
+    BACKGROUNDS[state.background].freeTraits.forEach(t => addEffects(t.effects, traitOnly));
+    POSITIVE_TRAITS.forEach(t => { if (state.pos.has(t.name)) addEffects(t.effects, traitOnly); });
+    NEGATIVE_TRAITS.forEach(t => { if (state.neg.has(t.name)) addEffects(t.effects, traitOnly); });
+
+    // From skills
+    for (const [groupKey, tier] of Object.entries(state.skills)) {
+      const group = SKILL_GROUPS.find(g => g.key === groupKey);
+      if (!group) continue;
+      const mod = Math.floor(SKILL_TIERS[tier].start / 2);
+      group.list.forEach(skill => {
+        const check = SKILL_TO_CHECK[skill] ?? null;
+        if (check) skillOnly[check] += mod;
+      });
+    }
+
+    // Build table
+    const body = tb;
+    body.innerHTML = "";
+    CHECKS.forEach(check => {
+      const tr = el("tr");
+      tr.append(el("td",{}, check));
+      tr.append(el("td",{}, (totals[check]||0)));
+      tr.append(el("td",{}, traitOnly[check]||0));
+      tr.append(el("td",{}, skillOnly[check]||0));
+      body.append(tr);
+    });
+  }
+
+  function renderAll() {
+    renderSkillRows();
+    renderTotals();
+  }
+
+  // Roller logic
+  rollBtn.addEventListener("click", () => {
+    const check = selCheck.value;
+    const totals = sumEffects();
+    const mod = totals[check] || 0;
+
+    // roll with a tiny flourish
+    d1.classList.add("shake"); d2.classList.add("shake");
+    setTimeout(() => {
+      d1.classList.remove("shake"); d2.classList.remove("shake");
+      const r1 = 1 + Math.floor(Math.random()*6);
+      const r2 = 1 + Math.floor(Math.random()*6);
+      d1.textContent = r1; d2.textContent = r2;
+
+      const total = r1 + r2 + mod;
+      out.innerHTML =
+        `<div><strong>${check}</strong> → 2d6(${r1}+${r2}) ${mod>=0?'+':''}${mod} = <strong>${total}</strong></div>
+         <div class="muted small">Breakdown: trait bonuses + skill modifiers (skill level ÷ 2) per the Dice Guide.</div>`;
+    }, 180);
+  });
+
+  // Initial render
+  renderAll();
 })();
 </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<!-- ...[rest of your code as above]... -->
-</head>
-<body>
-<!-- ... -->
-</body>
-</html>
+
 Add NWO Character Builder HTML for GitHub Pages
