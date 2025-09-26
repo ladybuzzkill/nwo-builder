@@ -76,7 +76,7 @@
 </div>
 
 <script>
-// --- Data from Dice Guide (grouped, logic from your second code sample) ---
+// --- Data from Dice Guide ---
 const BACKGROUNDS = {
   Scavenger: {
     traitPoints: 8, base: { STR: 8, FIT: 8 },
@@ -108,6 +108,7 @@ const BACKGROUNDS = {
   }
 };
 
+// --- POSITIVE TRAITS (updated per user) ---
 const POSITIVE_TRAITS = [
   { name: "Speed Demon", cost: 1, effects: {} },
   { name: "Low Thirst", cost: 1, effects: {} },
@@ -123,9 +124,10 @@ const POSITIVE_TRAITS = [
   { name: "Desensitized", cost: 4, effects: { Resolve: +4 } },
   { name: "Resilient", cost: 2, effects: { Robustness: +1 } },
   { name: "Fit", cost: 3, effects: { Fitness: +2 } },
-  { name: "Strong", cost: 3, effects: { Strength: +2 } },
+  { name: "Strong", cost: 3, effects: { Strength: +2 } }
 ];
 
+// --- NEGATIVE TRAITS (updated per user) ---
 const NEGATIVE_TRAITS = [
   { name: "Prone to Illness", cost: 1, effects: { Robustness: -1 } },
   { name: "Smoker", cost: 1, effects: { Robustness: -1 } },
@@ -148,9 +150,10 @@ const NEGATIVE_TRAITS = [
   { name: "Weak", cost: 3, effects: {} },
   { name: "Unfit", cost: 3, effects: {} },
   { name: "Illiterate", cost: 4, effects: {} },
-  { name: "Slow Healer", cost: 1, effects: { Robustness: -1 } },
+  { name: "Slow Healer", cost: 1, effects: { Robustness: -1 } }
 ];
 
+// --- Skill Traits ---
 const SKILL_TIERS = {
   Amateur: { cost: 1, start: 6, cap: 6, limitPerChar: Infinity },
   Experienced: { cost: 2, start: 8, cap: 8, limitPerChar: 2 },
@@ -174,9 +177,9 @@ const SKILL_TO_CHECK = {
 };
 
 const CHECKS = [
-  "Melee Attack", "Ranged Attack", "Reloading",
+  "Melee Attack", "Melee Defence", "Ranged Attack", "Reloading",
   "Perception", "Resolve", "Stealth", "Initiative", "Robustness",
-  "First Aid", "Nimble"
+  "First Aid", "Nimble", "Strength", "Fitness"
 ];
 
 // --- State ---
@@ -192,14 +195,33 @@ function sumEffects() {
   const totals = {};
   CHECKS.forEach(c => totals[c] = 0);
 
+  // Base STR/FIT from background
+  const bg = BACKGROUNDS[state.background];
+  totals.Strength = bg.base.STR;
+  totals.Fitness = bg.base.FIT;
+
   // Background freebies
-  for (const t of BACKGROUNDS[state.background].freeTraits) {
+  for (const t of bg.freeTraits) {
     for (const [k, v] of Object.entries(t.effects)) totals[k] = (totals[k]||0)+v;
   }
   // Positives
-  POSITIVE_TRAITS.forEach(t => { if (state.pos.has(t.name)) for (const [k,v] of Object.entries(t.effects)) totals[k]=(totals[k]||0)+v; });
+  POSITIVE_TRAITS.forEach(t => {
+    if (state.pos.has(t.name)) {
+      for (const [k,v] of Object.entries(t.effects)) {
+        if (k === "Strength" || k === "Fitness") totals[k] = (totals[k]||0)+v;
+        else totals[k]=(totals[k]||0)+v;
+      }
+    }
+  });
   // Negatives
-  NEGATIVE_TRAITS.forEach(t => { if (state.neg.has(t.name)) for (const [k,v] of Object.entries(t.effects)) totals[k]=(totals[k]||0)+v; });
+  NEGATIVE_TRAITS.forEach(t => {
+    if (state.neg.has(t.name)) {
+      for (const [k,v] of Object.entries(t.effects)) {
+        if (k === "Strength" || k === "Fitness") totals[k] = (totals[k]||0)+v;
+        else totals[k]=(totals[k]||0)+v;
+      }
+    }
+  });
 
   // Skills
   for (const [groupKey, tier] of Object.entries(state.skills)) {
@@ -212,6 +234,23 @@ function sumEffects() {
       if (check) totals[check] = (totals[check]||0) + mod;
     });
   }
+
+  // Derived Melee Attack/Defence mods from Strength
+  if (typeof totals.Strength === "number") {
+    if (totals.Strength <= 4) {
+      totals["Melee Attack"] += -1;
+      totals["Melee Defence"] += -1;
+    } else if (totals.Strength <= 6) {
+      // 6: no mod
+    } else if (totals.Strength <= 8) {
+      totals["Melee Attack"] += 1;
+      totals["Melee Defence"] += 1;
+    } else if (totals.Strength >= 10) {
+      totals["Melee Attack"] += 2;
+      totals["Melee Defence"] += 2;
+    }
+  }
+
   return totals;
 }
 
@@ -230,6 +269,14 @@ function skillTierCounts() {
     if (tier==="Expert") ex++;
   }
   return { exp, ex };
+}
+
+function calcMaxHP(fit) {
+  if (fit >= 10) return 6;
+  if (fit >= 8) return 5;
+  if (fit >= 6) return 4;
+  if (fit >= 4) return 3;
+  return 2;
 }
 
 // --- Render Functions ---
@@ -336,41 +383,28 @@ function renderTraitsAndSkills() {
 function renderSummary() {
   const totals = sumEffects();
   let html = `<div class="note">Skill modifiers are computed as <b>(Skill Level ÷ 2)</b>. For example, Level 6 → +3; Level 10 → +5. <br>
-    Background freebies and vanilla traits also add flat bonuses as listed on your Dice Guide.</div>
+    <b>Fitness</b> increases Max HP. <b>Strength</b> modifies Melee Attack & Defence per Dice Guide.<br>
+    Background freebies and vanilla traits also add flat bonuses as listed.</div>
     <table class="stat-table"><thead>
-      <tr><th>Check</th><th>Total Mod</th><th>From Traits</th><th>From Skills</th></tr>
+      <tr><th>Stat/Check</th><th>Value/Mod</th></tr>
     </thead><tbody>`;
-  // Decompose bonuses
-  const traitOnly = {}, skillOnly = {};
-  CHECKS.forEach(k => { traitOnly[k]=0; skillOnly[k]=0; });
-  const addEffects = (effects, bucket) => { for (const [k,v] of Object.entries(effects)) if (k in traitOnly) bucket[k]+=v; };
-  BACKGROUNDS[state.background].freeTraits.forEach(t => addEffects(t.effects, traitOnly));
-  POSITIVE_TRAITS.forEach(t => { if (state.pos.has(t.name)) addEffects(t.effects, traitOnly); });
-  NEGATIVE_TRAITS.forEach(t => { if (state.neg.has(t.name)) addEffects(t.effects, traitOnly); });
-  for (const [groupKey, tier] of Object.entries(state.skills)) {
-    const group = SKILL_GROUPS.find(g => g.key === groupKey);
-    if (!group) continue;
-    const mod = Math.floor(SKILL_TIERS[tier].start / 2);
-    group.list.forEach(skill => {
-      const check = SKILL_TO_CHECK[skill] ?? null;
-      if (check) skillOnly[check] += mod;
-    });
-  }
-  CHECKS.forEach(check=>{
-    html += `<tr>
-      <td>${check}</td>
-      <td>${totals[check]||0}</td>
-      <td>${traitOnly[check]||0}</td>
-      <td>${skillOnly[check]||0}</td>
-    </tr>`;
+  html += `<tr><td>Strength</td><td>${totals.Strength||0}</td></tr>`;
+  html += `<tr><td>Fitness</td><td>${totals.Fitness||0} (Max HP: ${calcMaxHP(totals.Fitness||0)})</td></tr>`;
+  html += `<tr><td>Melee Attack Modifier</td><td>${totals["Melee Attack"]||0}</td></tr>`;
+  html += `<tr><td>Melee Defence Modifier</td><td>${totals["Melee Defence"]||0}</td></tr>`;
+
+  // Render other dice checks
+  ["Ranged Attack","Reloading","Perception","Resolve","Stealth","Initiative","Robustness","First Aid","Nimble"].forEach(check=>{
+    html += `<tr><td>${check}</td><td>${totals[check]||0}</td></tr>`;
   });
+
   html += `</tbody></table>`;
   document.getElementById('summary-area').innerHTML = html;
 }
 
 function renderRoller() {
   let html = `<label>Roll Test Type</label>
-    <select id="rollType">${CHECKS.map(k=>`<option>${k}</option>`).join('')}</select>
+    <select id="rollType">${["Melee Attack","Melee Defence","Ranged Attack","Reloading","Perception","Resolve","Stealth","Initiative","Robustness","First Aid","Nimble"].map(k=>`<option>${k}</option>`).join('')}</select>
     <div class="rollbox">
       <button id="rollBtn">Roll 2d6</button>
       <div class="dice"><div class="die" id="d1">–</div><div class="die" id="d2">–</div></div>
@@ -390,7 +424,7 @@ function renderRoller() {
     document.getElementById('d1').textContent = a;
     document.getElementById('d2').textContent = b;
     document.getElementById('total').textContent = `Total ${total}  (2d6=${a+b} ${mod>=0?'+':''}${mod})`;
-    document.getElementById('breakdown').textContent = `Trait mods + Skill mods (see summary)`;
+    document.getElementById('breakdown').textContent = `Trait mods + Skill mods + Strength/Fitness rules (see summary)`;
   };
 }
 
