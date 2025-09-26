@@ -44,6 +44,7 @@
   .stat-table th, .stat-table td { padding: 6px 8px; border-bottom: 1px solid #22293a; text-align: left; }
   .stat-table th { background: #171c26; position: sticky; top: 0; z-index: 1; color: var(--accent); }
   .note { font-size: 13px; color: var(--muted); background: #151923; border: 1px solid #232c40; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+  .breakdown-table th, .breakdown-table td { font-size:13px; border-bottom:1px solid #22293a; }
 </style>
 </head>
 <body>
@@ -116,9 +117,9 @@ const POSITIVE_TRAITS = [
   { name: "Iron Gut", cost: 1, effects: { Robustness: +1 } },
   { name: "Cats Eyes", cost: 2, effects: { Perception: +2 } },
   { name: "Adrenaline Junkie", cost: 2, effects: { Initiative: +2 } },
-  { name: "Graceful", cost: 2, effects: { Stealth: +2 } },
+  { name: "Graceful", cost: 2, effects: { Hiding: +2 } }, // now applies to Hiding
   { name: "Brave", cost: 2, effects: { Resolve: +2 } },
-  { name: "Inconspicuous", cost: 2, effects: { Stealth: +2 } },
+  { name: "Inconspicuous", cost: 2, effects: { Hiding: +2 } }, // now applies to Hiding
   { name: "Fast Healer", cost: 2, effects: { Robustness: +1 } },
   { name: "Eagle Eyed", cost: 3, effects: { "Ranged Attack": +1, Perception: +2 } },
   { name: "Desensitized", cost: 4, effects: { Resolve: +4 } },
@@ -141,8 +142,8 @@ const NEGATIVE_TRAITS = [
   { name: "Pacifist", cost: 2, effects: { Initiative: -2 } },
   { name: "Short Sighted", cost: 2, effects: { "Ranged Attack": -1, Perception: -1 } },
   { name: "Thin Skinned", cost: 2, effects: { Robustness: -2 } },
-  { name: "Conspicuous", cost: 2, effects: { Stealth: -2 } },
-  { name: "Clumsy", cost: 2, effects: { Stealth: -2 } },
+  { name: "Conspicuous", cost: 2, effects: { Hiding: -2 } }, // now applies to Hiding
+  { name: "Clumsy", cost: 2, effects: { Hiding: -2 } }, // now applies to Hiding
   { name: "Hard of Hearing", cost: 2, effects: { Perception: -2 } },
   { name: "Deaf", cost: 4, effects: { Perception: -4 } },
   { name: "All Thumbs", cost: 2, effects: {} },
@@ -171,15 +172,15 @@ const SKILL_GROUPS = [
 const SKILL_TO_CHECK = {
   Aiming: "Ranged Attack",
   Reloading: "Reloading",
-  Sneaking: "Stealth",
-  Nimble: "Nimble",
+  Sneaking: "Hiding",
+  Nimble: "Initiative", // will use for both Initiative and Unarmed in summary
   FirstAid: "First Aid"
 };
 
 const CHECKS = [
   "Melee Attack", "Melee Defence", "Ranged Attack", "Reloading",
-  "Perception", "Resolve", "Stealth", "Initiative", "Robustness",
-  "First Aid", "Nimble", "Strength", "Fitness"
+  "Perception", "Resolve", "Initiative", "Robustness", "First Aid",
+  "Nimble", "Hiding", "Strength", "Fitness"
 ];
 
 // --- State ---
@@ -190,68 +191,100 @@ const state = {
   skills: {}, // key -> tier ("Amateur"/"Experienced"/"Expert")
 };
 
+function getSkillMod(groupKey) {
+  const tier = state.skills[groupKey];
+  return tier ? Math.floor(SKILL_TIERS[tier].start / 2) : 0;
+}
+
 // --- Helper Functions ---
 function sumEffects() {
-  const totals = {};
-  CHECKS.forEach(c => totals[c] = 0);
+  // Breakdown will be tracked per check
+  const breakdown = {};
+  CHECKS.forEach(c => breakdown[c] = { base:0, traits:0, skills:0, derived:0, total:0 });
 
   // Base STR/FIT from background
   const bg = BACKGROUNDS[state.background];
-  totals.Strength = bg.base.STR;
-  totals.Fitness = bg.base.FIT;
+  breakdown.Strength.base = bg.base.STR;
+  breakdown.Fitness.base = bg.base.FIT;
 
-  // Background freebies
-  for (const t of bg.freeTraits) {
-    for (const [k, v] of Object.entries(t.effects)) totals[k] = (totals[k]||0)+v;
-  }
-  // Positives
+  // Base modifiers per your info
+  breakdown.Perception.base = 2;
+  breakdown.Resolve.base = 3;
+
+  // Derived Robustness: Fitness modifier + trait effects
+  // We'll sum trait effects into Robustness, and later add Fitness mod
+  // (Fitness modifier is: (Fitness-6)/2, rounded down, min 0)
+  
+  // Traits
   POSITIVE_TRAITS.forEach(t => {
     if (state.pos.has(t.name)) {
       for (const [k,v] of Object.entries(t.effects)) {
-        if (k === "Strength" || k === "Fitness") totals[k] = (totals[k]||0)+v;
-        else totals[k]=(totals[k]||0)+v;
+        if (k === "Strength" || k === "Fitness") breakdown[k].traits += v;
+        else breakdown[k].traits += v;
       }
     }
   });
-  // Negatives
   NEGATIVE_TRAITS.forEach(t => {
     if (state.neg.has(t.name)) {
       for (const [k,v] of Object.entries(t.effects)) {
-        if (k === "Strength" || k === "Fitness") totals[k] = (totals[k]||0)+v;
-        else totals[k]=(totals[k]||0)+v;
+        if (k === "Strength" || k === "Fitness") breakdown[k].traits += v;
+        else breakdown[k].traits += v;
       }
     }
   });
 
+  // Background freebies
+  for (const t of bg.freeTraits) {
+    for (const [k, v] of Object.entries(t.effects)) breakdown[k].traits += v;
+  }
+
   // Skills
-  for (const [groupKey, tier] of Object.entries(state.skills)) {
-    const group = SKILL_GROUPS.find(g => g.key === groupKey);
-    if (!group) continue;
-    const { start } = SKILL_TIERS[tier];
-    const mod = Math.floor(start / 2);
+  SKILL_GROUPS.forEach(group => {
+    const mod = getSkillMod(group.key);
     group.list.forEach(skill => {
-      const check = SKILL_TO_CHECK[skill] ?? null;
-      if (check) totals[check] = (totals[check]||0) + mod;
+      const check = SKILL_TO_CHECK[skill] || skill;
+      // Nimble: Initiative and Unarmed Melee
+      if (group.key === "Nimble") {
+        breakdown.Initiative.skills += mod;
+        breakdown.Nimble.skills += mod;
+        // Unarmed Melee: include in summary as part of Nimble
+      }
+      // Sneaking: Hiding
+      else if (group.key === "Sneaking") {
+        breakdown.Hiding.skills += mod;
+      }
+      // Aiming, Reloading, First Aid
+      else if (check && breakdown[check] !== undefined) {
+        breakdown[check].skills += mod;
+      }
     });
-  }
+  });
 
-  // Derived Melee Attack/Defence mods from Strength
-  if (typeof totals.Strength === "number") {
-    if (totals.Strength <= 4) {
-      totals["Melee Attack"] += -1;
-      totals["Melee Defence"] += -1;
-    } else if (totals.Strength <= 6) {
-      // 6: no mod
-    } else if (totals.Strength <= 8) {
-      totals["Melee Attack"] += 1;
-      totals["Melee Defence"] += 1;
-    } else if (totals.Strength >= 10) {
-      totals["Melee Attack"] += 2;
-      totals["Melee Defence"] += 2;
-    }
-  }
+  // Derived Strength: calculate Melee Attack and Defence mods
+  breakdown.Strength.total = breakdown.Strength.base + breakdown.Strength.traits;
+  let str = breakdown.Strength.total;
+  if (str <= 4) { breakdown["Melee Attack"].derived += -1; breakdown["Melee Defence"].derived += -1; }
+  else if (str <= 6) { /* no mod */ }
+  else if (str <= 8) { breakdown["Melee Attack"].derived += 1; breakdown["Melee Defence"].derived += 1; }
+  else if (str >= 10) { breakdown["Melee Attack"].derived += 2; breakdown["Melee Defence"].derived += 2; }
 
-  return totals;
+  // Robustness: Fitness modifier + trait effects
+  breakdown.Fitness.total = breakdown.Fitness.base + breakdown.Fitness.traits;
+  let fitMod = Math.max(Math.floor((breakdown.Fitness.total - 6)/2), 0);
+  breakdown.Robustness.derived += fitMod;
+
+  // Total for each check
+  CHECKS.forEach(check=>{
+    breakdown[check].total =
+      (breakdown[check].base || 0) +
+      (breakdown[check].traits || 0) +
+      (breakdown[check].skills || 0) +
+      (breakdown[check].derived || 0);
+  });
+
+  breakdown.MaxHP = { value: calcMaxHP(breakdown.Fitness.total) };
+
+  return breakdown;
 }
 
 function spend() {
@@ -381,21 +414,31 @@ function renderTraitsAndSkills() {
 }
 
 function renderSummary() {
-  const totals = sumEffects();
-  let html = `<div class="note">Skill modifiers are computed as <b>(Skill Level ÷ 2)</b>. For example, Level 6 → +3; Level 10 → +5. <br>
+  const b = sumEffects();
+
+  let html = `<div class="note">Breakdown: Base + Traits + Skills + Derived (if any) = Total. Skill modifiers are computed as <b>(Skill Level ÷ 2)</b>. <br>
     <b>Fitness</b> increases Max HP. <b>Strength</b> modifies Melee Attack & Defence per Dice Guide.<br>
     Background freebies and vanilla traits also add flat bonuses as listed.</div>
-    <table class="stat-table"><thead>
-      <tr><th>Stat/Check</th><th>Value/Mod</th></tr>
+    <table class="stat-table breakdown-table"><thead>
+      <tr>
+        <th>Stat/Check</th>
+        <th>Base</th>
+        <th>Traits</th>
+        <th>Skills</th>
+        <th>Derived</th>
+        <th>Total</th>
+      </tr>
     </thead><tbody>`;
-  html += `<tr><td>Strength</td><td>${totals.Strength||0}</td></tr>`;
-  html += `<tr><td>Fitness</td><td>${totals.Fitness||0} (Max HP: ${calcMaxHP(totals.Fitness||0)})</td></tr>`;
-  html += `<tr><td>Melee Attack Modifier</td><td>${totals["Melee Attack"]||0}</td></tr>`;
-  html += `<tr><td>Melee Defence Modifier</td><td>${totals["Melee Defence"]||0}</td></tr>`;
-
-  // Render other dice checks
-  ["Ranged Attack","Reloading","Perception","Resolve","Stealth","Initiative","Robustness","First Aid","Nimble"].forEach(check=>{
-    html += `<tr><td>${check}</td><td>${totals[check]||0}</td></tr>`;
+  html += `<tr><td>Strength</td><td>${b.Strength.base||0}</td><td>${b.Strength.traits||0}</td><td>${b.Strength.skills||0}</td><td>${b.Strength.derived||0}</td><td>${b.Strength.total||0}</td></tr>`;
+  html += `<tr><td>Fitness</td><td>${b.Fitness.base||0}</td><td>${b.Fitness.traits||0}</td><td>${b.Fitness.skills||0}</td><td>${b.Fitness.derived||0}</td><td>${b.Fitness.total||0} (Max HP: ${b.MaxHP.value})</td></tr>`;
+  html += `<tr><td>Melee Attack</td><td>${b["Melee Attack"].base||0}</td><td>${b["Melee Attack"].traits||0}</td><td>${b["Melee Attack"].skills||0}</td><td>${b["Melee Attack"].derived||0}</td><td>${b["Melee Attack"].total||0}</td></tr>`;
+  html += `<tr><td>Melee Defence</td><td>${b["Melee Defence"].base||0}</td><td>${b["Melee Defence"].traits||0}</td><td>${b["Melee Defence"].skills||0}</td><td>${b["Melee Defence"].derived||0}</td><td>${b["Melee Defence"].total||0}</td></tr>`;
+  // checks with base modifiers
+  html += `<tr><td>Perception</td><td>${b.Perception.base||0}</td><td>${b.Perception.traits||0}</td><td>${b.Perception.skills||0}</td><td>${b.Perception.derived||0}</td><td>${b.Perception.total||0}</td></tr>`;
+  html += `<tr><td>Resolve</td><td>${b.Resolve.base||0}</td><td>${b.Resolve.traits||0}</td><td>${b.Resolve.skills||0}</td><td>${b.Resolve.derived||0}</td><td>${b.Resolve.total||0}</td></tr>`;
+  // everything else
+  ["Ranged Attack","Reloading","Initiative","Robustness","First Aid","Nimble","Hiding"].forEach(check=>{
+    html += `<tr><td>${check}</td><td>${b[check].base||0}</td><td>${b[check].traits||0}</td><td>${b[check].skills||0}</td><td>${b[check].derived||0}</td><td>${b[check].total||0}</td></tr>`;
   });
 
   html += `</tbody></table>`;
@@ -403,8 +446,9 @@ function renderSummary() {
 }
 
 function renderRoller() {
+  // Remove Stealth as a roll, add Hiding instead
   let html = `<label>Roll Test Type</label>
-    <select id="rollType">${["Melee Attack","Melee Defence","Ranged Attack","Reloading","Perception","Resolve","Stealth","Initiative","Robustness","First Aid","Nimble"].map(k=>`<option>${k}</option>`).join('')}</select>
+    <select id="rollType">${["Melee Attack","Melee Defence","Ranged Attack","Reloading","Perception","Resolve","Initiative","Robustness","First Aid","Nimble","Hiding"].map(k=>`<option>${k}</option>`).join('')}</select>
     <div class="rollbox">
       <button id="rollBtn">Roll 2d6</button>
       <div class="dice"><div class="die" id="d1">–</div><div class="die" id="d2">–</div></div>
@@ -418,13 +462,13 @@ function renderRoller() {
   document.getElementById('rollBtn').onclick = ()=>{
     const name = document.getElementById('rollType').value;
     const [a,b] = [1+Math.floor(Math.random()*6), 1+Math.floor(Math.random()*6)];
-    const totals = sumEffects();
-    const mod = totals[name]||0;
-    const total = a+b+mod;
+    const bdown = sumEffects();
+    const mod = bdown[name]?.total || 0;
     document.getElementById('d1').textContent = a;
     document.getElementById('d2').textContent = b;
-    document.getElementById('total').textContent = `Total ${total}  (2d6=${a+b} ${mod>=0?'+':''}${mod})`;
-    document.getElementById('breakdown').textContent = `Trait mods + Skill mods + Strength/Fitness rules (see summary)`;
+    document.getElementById('total').textContent = `Total ${a+b+mod}  (2d6=${a+b} ${mod>=0?'+':''}${mod})`;
+    document.getElementById('breakdown').innerHTML =
+      `Base: ${bdown[name].base||0} + Traits: ${bdown[name].traits||0} + Skills: ${bdown[name].skills||0} + Derived: ${bdown[name].derived||0} = <b>${mod}</b>`;
   };
 }
 
